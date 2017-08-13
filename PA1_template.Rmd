@@ -1,25 +1,136 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "PA1_Template_SK"
+author: "Stu Kyle"
+date: "August 13, 2017"
+output: html_document
+keep_md: true
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
+
+
+#first load the packages needed for the analysis
+```{r}
+library(ggplot2)
+library(lubridate)
+library(plyr)
+```
 ## Loading and preprocessing the data
 
+#Part 1 Import data
+```{r}
+activity_data <- read.csv("activity.csv", stringsAsFactors = FALSE)
+```
+
+#make the date field a date variable
+```{r}
+activity_data$date <- ymd(activity_data$date)
+```
 
 
 ## What is mean total number of steps taken per day?
 
+#Part 2 Histogram of total steps per day
+```{r}
+ad_sum <- aggregate(list(sum_steps = activity_data[,1]),
+list(date = activity_data$date),
+sum,
+na.rm = TRUE)
 
+plot_steps_per_day <- ggplot(data = ad_sum, aes(sum_steps)) + geom_histogram()
+print(plot_steps_per_day)
+```
+
+#Part 3 Mean and Median number of steps each day
+```{r}
+aggregate(list(mean_steps = activity_data[,1]),
+list(date = activity_data$date),
+mean,
+na.rm = TRUE)
+
+aggregate(list(median_steps = activity_data[,1]),
+list(date = activity_data$date),
+median,
+na.rm = TRUE)
+```
 
 ## What is the average daily activity pattern?
 
+#Part 4 Time Series Plot
+```{r}
+ad_interval_mean <- aggregate(list(mean_steps = activity_data[,1]),
+list(interval = activity_data$interval),
+mean,
+na.rm = TRUE)
 
+plot_mean_steps_per_interval <- ggplot(data = ad_interval_mean,
+aes(x = interval, y = mean_steps)) + geom_line()
+print(plot_mean_steps_per_interval)
+```
+
+#Part 5 Interval with most steps
+```{r}
+ad_interval_mean[which.max(ad_interval_mean$mean_steps),]
+```
 
 ## Imputing missing values
 
+#Part 6 Impute Values
+#I will set NA values equal to the average for that interval
+#find how many rows with missing values
+```{r}
+sum(is.na(activity_data$steps))
+```
 
+#create a data frame with rows that have missing steps
+```{r}
+activity_data_missing <- subset(activity_data, is.na(steps))[,2:3]
+```
+
+#set the missing steps equal to the average
+```{r}
+ad_missing_imputed_values <- join(activity_data_missing,ad_interval_mean)
+```
+
+#change the column name back to steps
+```{r}
+names(ad_missing_imputed_values)[3] <- c("steps")
+```
+
+#put the two back together
+```{r}
+activity_data_impute <- rbind.fill(subset(activity_data, !is.na(steps)),
+ad_missing_imputed_values)
+```
+
+#Part 7 Histogram of total steps per day with imputed data
+```{r}
+ad_sum_impute <- aggregate(list(sum_steps = activity_data_impute[,1]),
+list(date = activity_data_impute$date),
+sum)
+
+plot_steps_per_day_impute <- ggplot(data = ad_sum_impute,
+aes(sum_steps)) + geom_histogram()
+print(plot_steps_per_day_impute)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+#Get average and standard deviation of steps by day of the week.
+```{r}
+dow_mean <- aggregate(list(mean_steps = ad_sum_impute[,2]),
+list(day_of_week = wday(ad_sum_impute$date, label = TRUE)),
+mean)
+
+dow_sd <- aggregate(list(sd_steps = ad_sum_impute[,2]),
+list(day_of_week = wday(ad_sum_impute$date, label = TRUE)),
+sd)
+
+dow_mean
+dow_sd
+```
+#Based on the mean and standard deviation, people take slightly more steps on the weekends and the number of steps is very consistent. On weekdays, the mean number of steps can be quite different from day to day and for each weekday, the variance can be quite large. The variances are particularly high on Tuesday, Thursday, and Friday.
+
